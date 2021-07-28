@@ -2,11 +2,34 @@ require('dotenv').config()
 const express = require('express')
 const app = express()
 const cors = require('cors')
-
+const Sentry = require('@sentry/node')
+const Tracing = require('@sentry/tracing')
 require('./mongo')
 const Note = require('./models/Note')
 const PORT = process.env.PORT
+
 app.use(cors())
+app.use(express.json())
+
+Sentry.init({
+  dsn: 'https://988e62c585064d648f27cca63be7f0f3@o925495.ingest.sentry.io/5874492',
+  integrations: [
+    // enable HTTP calls tracing
+    new Sentry.Integrations.Http({ tracing: true }),
+    // enable Express.js middleware tracing
+    new Tracing.Integrations.Express({ app })
+  ],
+  // Set tracesSampleRate to 1.0 to capture 100%
+  // of transactions for performance monitoring.
+  // We recommend adjusting this value in production
+  tracesSampleRate: 1.0
+})
+
+// RequestHandler creates a separate execution context using domains, so that every
+// transaction/span/breadcrumb is attached to its own Hub instance
+app.use(Sentry.Handlers.requestHandler())
+// TracingHandler creates a trace for every incoming request
+app.use(Sentry.Handlers.tracingHandler())
 
 app.get('/', (req, res) => {
   res.send('<h1>Hello world!</h1>')
@@ -30,8 +53,8 @@ app.get('/api/notes/:id', (req, res, next) => {
   })
     .catch((err) => {
       next(err)
-      console.error(err)
-      res.status(503).end()
+      // console.log(err.message)
+      res.status(400).end()
     })
 })
 
@@ -59,17 +82,17 @@ app.post((req, res) => {
     })
 })
 
-app.delete('/notes/:id', (req, res, next) => {
+app.delete('/api/notes/:id', (req, res, next) => {
   const { id } = req.params
 
-  Note.findByIdAndRemove(id).then((result) => {
+  Note.findByIdAndDelete(id).then((result) => {
     res.status(204).end()
   }).catch(err => next(err))
 
   res.status(204).end()
 })
 
-app.put('/notes/:id', (req, res, next) => {
+app.put('/api/notes/:id', (req, res, next) => {
   const { id } = req.params
   const note = req.body
 
@@ -78,12 +101,17 @@ app.put('/notes/:id', (req, res, next) => {
     important: note.important
   }
 
-  Note.findByIdAndUpdate(id, newNoteInfo)
+  Note.findByIdAndUpdate(id, newNoteInfo, { new: true })
     .then(result => {
       res.status(200).end()
     })
-
   res.status(204).end()
+})
+
+app.use(Sentry.Handlers.errorHandler())
+
+app.use((req, res, next) => {
+  res.status(404).end()
 })
 
 app.use((error, req, res, next) => {

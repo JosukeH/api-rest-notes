@@ -1,15 +1,6 @@
-const http = require('http')
-const data = require('./post/post');
-const PORT = 3001
+require('dotenv').config()
+const cors = require('cors')
+const express = require('express')
+const app = express()
 
-
-
-const app = http.createServer((req,res) => {
-    res.writeHead(200,{'contentType': 'application/json'})
-    res.end(JSON.stringify(data))
-})
-
-console.log(`server running in the port ${PORT}`)
-app.listen(PORT)
-
-
+app.use(cors())

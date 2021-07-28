@@ -1,0 +1,8 @@
+PUT http://localhost:3001/api/notes/60ee6b8dc4bd890fc8930cc5
+content-type: application/json
+
+{
+ "content": "Dale Like a Charlie Dev",
+ "important": true
+
+}
